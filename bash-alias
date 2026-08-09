@@ -1,0 +1,81 @@
+# bashrc sets this before sourcing us; the fallback keeps the file usable alone.
+BASH_CONFIG_DIR="${BASH_CONFIG_DIR:-$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+
+# Calculator (Qalculate): interactive, or one-shot `calc '43 + 5 * 20'`.
+alias calc=qalc
+
+# Aliases Vim
+alias v="vim ."
+
+# Aliases Yazi
+# A function, not an alias, so we can cd into the folder yazi quit in — it
+# writes its last cwd to --cwd-file.
+#
+# No EXIT trap, unlike the zsh version: in bash a `trap … EXIT` set inside a
+# function belongs to the whole shell, not the function, so it would fire when
+# you close the terminal instead of when this returns. The rm below covers the
+# normal path; killing the shell while yazi is open leaves one empty file in
+# $TMPDIR, which is the whole cost of not having function-scoped traps.
+r() {
+    local tmp cwd
+    tmp="$(mktemp -t yazi-cwd.XXXXXX)" || return 1
+    yazi "$@" --cwd-file="$tmp"
+    # `$(cat)` strips the trailing newline yazi writes, which would break the cd.
+    cwd="$(command cat -- "$tmp" 2>/dev/null)"
+    command rm -f -- "$tmp"
+    if [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+        builtin cd -- "$cwd"
+    fi
+}
+
+# Tmux
+
+alias ta="tmux attach"
+
+tn() {
+    if [ -z "$1" ]; then
+        tmux
+    else
+        tmux new -s "$1"
+    fi
+}
+
+# Reload every config after editing one
+#
+# Hands the work to best-linux-environment's boot.sh: it pulls each config repo
+# and re-runs its install.sh (so ~/.vimrc, ~/.tmux.conf, ~/.bashrc and the i3
+# config go back to what the repo now says), then reloads what is already
+# running — i3, every tmux server, the font cache, X resources.
+#
+# Guarded on the script being there: this file is sourced on machines that don't
+# have best-linux-environment, and a missing script must not break the shell.
+# Override the location with BLE_HOME if the repo lives elsewhere.
+b-reload() {
+    local boot="${BLE_HOME:-$HOME/best-linux-environment}/boot.sh"
+    if [ ! -x "$boot" ]; then
+        printf 'b-reload: no best-linux-environment at %s — nothing to reload.\n' \
+            "$boot" >&2
+        return 1
+    fi
+    "$boot" "$@" || return $?
+    # boot.sh cannot reach a shell that already exists — only a new one reads the
+    # new bashrc. `exec` replaces this shell in place, so no nesting builds up.
+    # Skipped for --dry-run, which is supposed to change nothing.
+    case " $* " in
+        *" --dry-run "*) return 0 ;;
+    esac
+    exec bash
+}
+
+# Lazygit
+alias lz="lazygit"
+alias ld="lazydocker"
+
+# Git
+alias gs="git status"
+alias gp="git pull"
+
+# Machine-local, untracked aliases (SSH hosts, secrets, machine-specific paths)
+BASH_ALIAS_LOCAL="$BASH_CONFIG_DIR/bash-alias.local"
+[ -f "$BASH_ALIAS_LOCAL" ] && . "$BASH_ALIAS_LOCAL"
+unset BASH_ALIAS_LOCAL

@@ -1,0 +1,21 @@
+# Machine-local / private overrides (SSH hosts, secrets, machine-specific paths).
+# Covers bash-alias.local, which bash-alias sources at the end if it exists.
+*.local
+
+# Editor & swap files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# OS junk
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# bash runtime artifacts (in case the repo is ever cloned into place directly)
+.bash_history
+.bash_sessions/
