@@ -1,186 +1,166 @@
 # .bash
 
-My personal **Bash** configuration — the counterpart of
-[**zshrc**](https://github.com/Spuppateddu/zshrc), with the same aliases and the
-same helper functions, for machines where bash is the shell. The prompt is left
-alone on purpose: it stays the plain one bash ships with.
+My personal **Bash** configuration: two files and the `bash-completion` package.
+No framework, nothing third-party sourced into your shell. The prompt is left
+alone on purpose — it stays the plain one bash ships with.
 
-No framework. Nothing is cloned, nothing is compiled, nothing third-party is
-sourced into your shell: the whole config is the two files in this repo plus the
-`bash-completion` package. That is the deliberate difference from the zsh side,
-which is built on Oh My Zsh.
+![The machine this config runs on](./pictures/os_specs.png)
 
-## 🔗 On its own, or as part of best-linux-environment
+## ✨ What you get
 
-Both work, and this repo is written not to care which one ran it.
-
-**On its own** — clone it, run [`install.sh`](./install.sh), done. That script
-owns every bash-specific step (`bash-completion`, `~/.bashrc`, the login shell);
-nothing outside this repo is needed.
-
-**As part of a whole machine** —
-[**best-linux-environment**](https://github.com/Spuppateddu/best-linux-environment)
-sets up an entire Ubuntu box and asks you, once, at the start, whether this
-machine runs **zsh or bash**. Pick bash and it clones this repo into
-`~/linux-configuration/bash`, leaves `~/.bash` behind as a symlink to it, and
-calls this repo's own `install.sh` — the same script, doing the same work. It
-also keeps it pulled and re-applied at every boot.
-
-Both config repos can sit on the same machine; only one of them owns the login
-shell. That is what `--no-login-shell` is for (see [Usage](#-usage) below):
-best-linux-environment passes it to whichever of the two you did *not* pick, so
-a `./boot.sh` can re-apply both configs without either one quietly `chsh`-ing
-you back.
-
-## ✨ Features
-
-- **No prompt of its own.** `PS1` is never touched, so you get stock bash's
+- **No prompt of its own.** `PS1` is never touched, so you keep stock bash's
   `user@host:path$` — one line, no git branch, no theme.
-- ↑/↓ search history by prefix (readline's `history-search-backward`), which is
-  what the zsh config uses `zsh-history-substring-search` for.
-- Tab completion for git, apt, docker and the rest, via `bash-completion`.
-- The same aliases and functions as the zsh config: Git, Laravel/PHP, Composer,
-  Node, tmux, yazi, lazygit, headless Chrome.
-- `nvm` loaded on first use, not at every shell start.
-- Machine-local overrides kept **out of version control** (`bash-alias.local`).
+- **↑/↓ searches history by prefix.** Type the start of a command, then ↑ walks
+  only the entries that begin with it (readline's `history-search-backward`).
+- **Tab completion** for git, apt, docker and the rest, via `bash-completion` —
+  case-insensitive, and one Tab shows the list instead of two.
+- **50 000 lines of history** that appends instead of truncating, drops repeats,
+  and skips any command you type with a leading space.
+- **Recursive globs and a forgiving `cd`.** `shopt -s globstar`, plus `cdspell`
+  and `dirspell` to fix small typos in a directory name.
+- **Short aliases** for git, tmux, yazi, lazygit, lazydocker and Qalculate — see
+  [Usage](#-usage).
+- **`nvm` loaded on first use**, not at every shell start. Sourcing `nvm.sh`
+  costs 100–400 ms and most shells never run node.
+- **Private aliases stay private.** `bash-alias.local` is gitignored and sourced
+  automatically, so machine-specific hosts and IPs never get committed.
 
-## 🔀 What zsh has and this doesn't
+## 🚀 Install
 
-Honest list, because these are the reasons to pick zsh:
+Two ways in. Same script, same result — this repo does not care which one ran it.
 
-| zsh | bash |
-| --- | --- |
-| **Ghost-text autosuggestions** (`zsh-autosuggestions`) — the rest of a command greyed out ahead of the cursor, Ctrl+Space to accept | Nothing. readline has no such thing. `ble.sh` adds it, at the cost of a large third-party line editor in every shell |
-| **Live syntax highlighting** (`zsh-syntax-highlighting`) — a typo'd command turns red as you type it | Nothing, same reason |
-| **Oh My Zsh's `git` plugin** — around 150 short git aliases (`gst`, `gco`, `gcm`…) | Only the two the config itself defines, `gs` and `gp`. `git <tab>` covers the rest |
-| `**/` and `AUTO_CD` on by default | `**/` turned on explicitly (`shopt -s globstar`). `AUTO_CD` is deliberately left off — a bare directory name is not a command |
-| Function-scoped `trap`, so `r` and `chrome-debug` clean up on any exit | Worked around — see the comments on those two functions in [`bash-alias`](./bash-alias) |
+### On its own
 
-Everything else in the zsh config is here, line for line.
+```sh
+git clone https://github.com/Spuppateddu/configuration-bash.git ~/.bash
+~/.bash/install.sh
+exec bash
+```
+
+That is the whole thing. `install.sh` owns every step — the packages, `~/.bashrc`
+and the login shell — so nothing outside this repo is needed.
+
+`~/.bash` is the conventional spot, but any path works: the installer wires
+`~/.bashrc` to wherever you cloned it, and `bashrc` finds its own directory at
+runtime from `${BASH_SOURCE[0]}`.
+
+Then, optionally, add your machine-local aliases — SSH hosts, secrets, anything
+you don't want on GitHub:
+
+```sh
+cat > ~/.bash/bash-alias.local <<'EOF'
+# Machine-local aliases — not tracked by git
+alias myserver="ssh user@host-or-ip"
+alias prod="ssh ubuntu@your.prod.ip"
+EOF
+```
+
+### As part of best-linux-environment
+
+[**best-linux-environment**](https://github.com/Spuppateddu/best-linux-environment)
+sets up a whole Ubuntu box. It clones this repo into `~/linux-configuration/bash`,
+symlinks `~/.bash` to it, and calls this same `install.sh` — then keeps it pulled
+and re-applied at every boot. The `b-reload` alias triggers that by hand.
+
+Several shell configs can live on one machine, but only one owns the login shell.
+That is what `--no-login-shell` is for: best-linux-environment passes it to the
+configs that did *not* win, so re-running `boot.sh` never quietly `chsh`-es you
+back.
 
 ## 📦 Requirements
 
-| Tool | Why |
+Only bash is required. Everything else is optional — you lose the matching alias
+and nothing else.
+
+| Tool | Needed for |
 | --- | --- |
 | [Bash](https://www.gnu.org/software/bash/) 4.2+ | The shell itself. `${var/#pat/rep}` and `local -a` need it; Ubuntu ships 5.x |
-| [bash-completion](https://github.com/scop/bash-completion) | Tab completion for git, apt, docker… (optional) |
-| [tmux](https://github.com/tmux/tmux) | The `ta` / `tn` aliases (optional) |
-| [yazi](https://github.com/sxyazi/yazi) | The `r` file-manager function (optional) |
-| [Qalculate](https://qalculate.github.io/) | The `calc` alias — provides `qalc` (optional) |
-| [lazygit](https://github.com/jesseduffield/lazygit) | The `lz` alias (optional) |
-| [Homebrew](https://brew.sh/) | Referenced for some paths (optional) |
+| [bash-completion](https://github.com/scop/bash-completion) | Tab completion for git, apt, docker… |
+| [tmux](https://github.com/tmux/tmux) | `ta`, `tn` |
+| [yazi](https://github.com/sxyazi/yazi) | `r` |
+| [lazygit](https://github.com/jesseduffield/lazygit) / [lazydocker](https://github.com/jesseduffield/lazydocker) | `lz`, `ld` |
+| [Qalculate](https://qalculate.github.io/) | `calc` (provides `qalc`) |
 
-`install.sh` installs bash, git, curl and bash-completion for you — you only need
-this list if you'd rather wire things up by hand.
-
-## 🚀 Installation
-
-1. **Clone the repo and run the installer:**
-
-   ```sh
-   git clone https://github.com/Spuppateddu/configuration-bash.git ~/.bash
-   ~/.bash/install.sh
-   ```
-
-   `~/.bash` is the conventional spot, but any path works — `install.sh` wires
-   `~/.bashrc` to wherever you cloned it, and `bashrc` resolves its own directory
-   at runtime from `${BASH_SOURCE[0]}`.
-
-   The installer is idempotent, so re-run it any time to update. It installs
-   bash/git/curl/bash-completion (apt or Homebrew), **appends** `source
-   <repo>/bashrc` to the **end** of `~/.bashrc` (backing the file up first), and
-   sets bash as your login shell.
-
-   Appending at the end is the whole trick: Ubuntu's stock `~/.bashrc` sets its
-   own history options and a few aliases, and going last is what makes this
-   config win over them rather than be overwritten by them. Nothing in the stock
-   file is deleted — and its `PS1` block is left to do its job, since this config
-   sets no prompt of its own.
-
-   Run it as yourself, **not** with `sudo` — it configures `$HOME`, and under
-   `sudo` that is root's. It escalates on its own for the package installs, and
-   refuses to run rather than quietly setting root's shell up instead of yours.
-
-   Use `./install.sh --dry-run` to see every step without touching anything —
-   `DRY_RUN` from the environment works too and accepts `true`/`1`/`yes`/`on`
-   (anything unrecognised is rejected rather than quietly treated as a real run).
-
-   If you keep a hand-written `~/.bash_profile`, the installer checks it: bash
-   reads *that* file at login and ignores `~/.profile` (the one Ubuntu ships,
-   which sources `~/.bashrc`) entirely, so a TTY or ssh session would get none of
-   this config. It tells you the one line to add rather than editing your file.
-
-   **On the login shell.** `chsh` needs your password, which it asks PAM for — so
-   it needs either a terminal to ask on or root. Running this script yourself, it
-   asks. Run from `best-linux-environment`, there is no terminal (stdin is
-   `/dev/null`, so no installer can stop a run to ask a question), and it uses
-   that run's already-cached `sudo` instead. If neither is available it says so
-   and prints `chsh -s /usr/bin/bash` for you to run — it never reports success
-   for something it skipped.
-
-   **And once it is changed, you have to log out.** This is the part that looks
-   like a bug and isn't. `chsh` writes `/etc/passwd` — and almost nothing reads
-   `/etc/passwd`. What terminals read is `$SHELL`, which PAM sets **once**, when
-   your desktop session logs in, from whatever `/etc/passwd` said at that moment.
-   Change it afterwards and the running session never hears about it: your window
-   manager still holds the old value and every terminal it spawns inherits it.
-
-   Measured on Alacritty 0.16 — it prefers `$SHELL`, and only falls back to the
-   passwd entry when `$SHELL` is unset:
-
-   ```
-   SHELL unset          -> bash     (falls back to the passwd entry)
-   SHELL=/usr/bin/bash  -> bash
-   SHELL=/usr/bin/zsh   -> zsh      (passwd said bash — $SHELL won)
-   ```
-
-   So a brand-new window from the same session is still the old shell. Fixes, in
-   increasing order of thoroughness:
-
-   | | |
-   | --- | --- |
-   | this shell, right now | `exec bash -l` |
-   | new tmux panes | `tmux kill-server` (a running server cached the old `$SHELL`) |
-   | everything, properly | log out and back in |
-
-2. **Set up your machine-local aliases** (SSH hosts, secrets, etc.).
-   Create `bash-alias.local` next to `bash-alias` — it's gitignored and sourced
-   automatically, so your private hostnames/IPs never get committed:
-
-   ```sh
-   cat > ~/.bash/bash-alias.local <<'EOF'
-   # Machine-local aliases — not tracked by git
-   alias myserver="ssh user@host-or-ip"
-   alias prod="ssh ubuntu@your.prod.ip"
-   EOF
-   ```
-
-3. **Reload the shell:**
-
-   ```sh
-   exec bash   # or just open a new terminal
-   ```
+`install.sh` installs bash, git, curl and bash-completion for you — this list is
+only for wiring things up by hand.
 
 ## 🔧 Usage
 
-A few of the aliases you get (see [`bash-alias`](./bash-alias) for the full list):
-
 | Alias | Does |
 | --- | --- |
-| `bashreload` | Re-exec bash to pick up config changes |
 | `gs` / `gp` | `git status` / `git pull` |
-| `lz` | Open `lazygit` |
-| `pa <cmd>` | `php artisan <cmd>` |
-| `lpm [:sub] [args]` | `php artisan migrate` (`lpm :fresh --seed`) |
+| `lz` / `ld` | Open `lazygit` / `lazydocker` |
+| `v` | `vim .` |
 | `r` | Open `yazi`, and `cd` to wherever you left it |
-| `chrome-debug` | Headless Chrome with remote debugging on `:9222` (`CHROME_DEBUG_PORT` to change) |
+| `ta` | `tmux attach` |
+| `tn [name]` | New tmux session, named if you give it one |
+| `calc ['43 + 5 * 20']` | Qalculate, interactive or one-shot |
+| `b-reload` | Re-apply every config repo via best-linux-environment's `boot.sh`, then `exec bash` |
 
-And the installer's flags:
+Full source in [`bash-alias`](./bash-alias). Installer flags:
 
 | Flag | Does |
 | --- | --- |
-| `--dry-run` | Print every step, change nothing |
-| `--no-login-shell` | Wire the config, but don't `chsh`. Used when zsh owns the login shell on this machine |
+| `--dry-run` | Print every step, change nothing. `DRY_RUN` in the environment works too |
+| `--no-login-shell` | Wire the config, but don't `chsh` — for when another shell owns the login shell |
+
+## 🔍 What the installer actually does
+
+It is idempotent, so re-run it any time to update.
+
+1. Installs bash, git, curl and bash-completion (apt, or Homebrew on macOS).
+2. Backs up `~/.bashrc`, then **appends** `source <repo>/bashrc` to the **end**
+   of it.
+3. Sets bash as your login shell.
+
+Appending at the end is the whole trick. Ubuntu's stock `~/.bashrc` sets its own
+history options and aliases; going last is what makes this config win over them
+instead of being overwritten by them. Nothing in the stock file is deleted, and
+its `PS1` block still does its job — this config sets no prompt.
+
+Run it as yourself, **not** with `sudo`: it configures `$HOME`, and under `sudo`
+that is root's. It escalates on its own for the package installs, and refuses to
+run rather than quietly setting up root's shell instead of yours.
+
+If you keep a hand-written `~/.bash_profile`, the installer checks it. Bash reads
+*that* file at login and ignores `~/.profile` (the one Ubuntu ships, which
+sources `~/.bashrc`) — so a TTY or ssh session would get none of this config. It
+prints the one line to add rather than editing your file.
+
+## 🩺 The login shell changed, but my terminal didn't
+
+This looks like a bug and isn't.
+
+`chsh` writes `/etc/passwd` — and almost nothing reads `/etc/passwd`. What
+terminals read is `$SHELL`, which PAM sets **once**, when your desktop session
+logs in, from whatever `/etc/passwd` said at that moment. Change it afterwards
+and the running session never hears about it: your window manager still holds the
+old value, and every terminal it spawns inherits it.
+
+Measured on Alacritty 0.16 — it prefers `$SHELL`, and only falls back to the
+passwd entry when `$SHELL` is unset:
+
+```
+SHELL unset             -> bash          (falls back to the passwd entry)
+SHELL=/usr/bin/bash     -> bash
+SHELL=<any other shell> -> that shell    (passwd said bash — $SHELL won)
+```
+
+So a brand-new window from the same session is still the old shell. Fixes, least
+to most thorough:
+
+| | |
+| --- | --- |
+| this shell, right now | `exec bash -l` |
+| new tmux panes | `tmux kill-server` (a running server cached the old `$SHELL`) |
+| everything, properly | log out and back in |
+
+One more wrinkle: `chsh` asks PAM for your password, so it needs either a
+terminal to ask on, or root. Run the script yourself and it asks. Run it from
+best-linux-environment and there is no terminal (stdin is `/dev/null`, so no
+installer can stop the run to ask), so it uses that run's already-cached `sudo`.
+If neither is available it says so and prints `chsh -s /usr/bin/bash` for you —
+it never reports success for something it skipped.
 
 ## 📁 Layout
 
@@ -188,13 +168,10 @@ And the installer's flags:
 .bash/
 ├── install.sh    # installs deps + wires ~/.bashrc (idempotent)
 ├── bashrc        # main entry point (sourced from the end of ~/.bashrc)
-└── bash-alias    # aliases & functions (sources bash-alias.local)
+├── bash-alias    # aliases & functions (sources bash-alias.local)
+└── pictures/     # screenshots used by this README
 # bash-alias.local — your private, untracked aliases (gitignored)
 ```
-
-The file names deliberately mirror the zsh repo's (`zshrc` / `zsh-alias` /
-`zsh-alias.local`), so the two can be diffed against each other when one of them
-changes.
 
 ## 📄 License
 
