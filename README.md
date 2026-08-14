@@ -4,7 +4,7 @@ My personal **Bash** configuration: two files and the `bash-completion` package.
 No framework, nothing third-party sourced into your shell. The prompt is left
 alone on purpose — it stays the plain one bash ships with.
 
-![The machine this config runs on](./pictures/os_specs.png)
+![The stock bash prompt running fastfetch in alacritty](./pictures/bash_setup.png)
 
 ## ✨ What you get
 
