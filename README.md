@@ -24,6 +24,9 @@ alone on purpose — it stays the plain one bash ships with.
   costs 100–400 ms and most shells never run node.
 - **Private aliases stay private.** `bash-alias.local` is gitignored and sourced
   automatically, so machine-specific hosts and IPs never get committed.
+- **The machine turns itself off when nobody is using it** — an hour idle, ten
+  minutes with the screen locked. The counterpart to Wake-on-LAN and
+  "power on after power loss". See [Idle poweroff](#-idle-poweroff).
 
 ## 🚀 Install
 
@@ -96,6 +99,7 @@ only for wiring things up by hand.
 | `tn [name]` | New tmux session, named if you give it one |
 | `calc ['43 + 5 * 20']` | Qalculate, interactive or one-shot |
 | `b-reload` | Re-apply every config repo via best-linux-environment's `boot.sh`, then `exec bash` |
+| `b-idle [off\|on\|log]` | Idle-poweroff status, or hold it off until reboot — see [Idle poweroff](#-idle-poweroff) |
 
 Full source in [`bash-alias`](./bash-alias). Installer flags:
 
@@ -103,6 +107,7 @@ Full source in [`bash-alias`](./bash-alias). Installer flags:
 | --- | --- |
 | `--dry-run` | Print every step, change nothing. `DRY_RUN` in the environment works too |
 | `--no-login-shell` | Wire the config, but don't `chsh` — for when another shell owns the login shell |
+| `--no-idle-poweroff` | Wire the config, but install no idle-poweroff timer, so this machine never turns itself off |
 
 ## 🔍 What the installer actually does
 
@@ -112,6 +117,8 @@ It is idempotent, so re-run it any time to update.
 2. Backs up `~/.bashrc`, then **appends** `source <repo>/bashrc` to the **end**
    of it.
 3. Sets bash as your login shell.
+4. Installs the [idle poweroff](#-idle-poweroff) systemd timer (needs root; skipped
+   with a warning if there isn't any, and by `--no-idle-poweroff`).
 
 Appending at the end is the whole trick. Ubuntu's stock `~/.bashrc` sets its own
 history options and aliases; going last is what makes this config win over them
@@ -169,9 +176,72 @@ it never reports success for something it skipped.
 ├── install.sh    # installs deps + wires ~/.bashrc (idempotent)
 ├── bashrc        # main entry point (sourced from the end of ~/.bashrc)
 ├── bash-alias    # aliases & functions (sources bash-alias.local)
+├── idle-poweroff/  # the idle poweroff script, its systemd units and its config
+│   ├── idle-poweroff.sh       # → /usr/local/sbin/idle-poweroff
+│   ├── idle-poweroff.service  # → /etc/systemd/system/
+│   ├── idle-poweroff.timer    # → /etc/systemd/system/  (once a minute)
+│   └── idle-poweroff.conf     # → /etc/idle-poweroff.conf, written once
 └── pictures/     # screenshots used by this README
 # bash-alias.local — your private, untracked aliases (gitignored)
 ```
+
+## ⏻ Idle poweroff
+
+These machines are woken with Wake-on-LAN, and their BIOS is set to power on
+again after a power loss. A blackout at 3am therefore boots every box in the
+house — and with nobody home they sit at the login screen for days. `install.sh`
+installs the other half of that setting: a root systemd timer that powers the
+machine back off once it is demonstrably unused.
+
+| Situation | Powers off after |
+| --- | --- |
+| Screen locked (`i3lock`) | **10 min** — locking is the human saying they left |
+| Unlocked desktop | **1 h** with no key or mouse event (`xprintidle`) |
+| Sitting at the LightDM login window | **1 h** — the blackout case |
+| Headless, or no X at all | **1 h**, counted from the first check after boot |
+
+It never powers off silently. At the limit it sends a desktop notification and a
+`wall`, waits two minutes, and only then pulls the plug — any activity in that
+window cancels it.
+
+And it will not power off **at all** while:
+
+- the 1-minute load average is above `0.5` — a build, a render, a backup;
+- a tty or ssh login has written to its terminal within the last hour;
+- a systemd `block` inhibitor is holding shutdown, which is the clean way to
+  protect a long job: `systemd-inhibit --what=shutdown --why='ripping a disc' -- make -j16`;
+- `b-idle off` is in force, or `ENABLED=false` is set in the config.
+
+A graphical session that exists but cannot be measured — a Wayland compositor,
+an unreadable Xauthority — counts as *in use*. Powering off a desktop we cannot
+see is the one mistake here that cannot be undone.
+
+Day to day you only ever type `b-idle`:
+
+```sh
+b-idle          # what it sees right now, and how close it is to powering off
+b-idle off      # hold it off until the next reboot
+b-idle on       # release that hold
+b-idle log      # what it has actually done, from the journal
+```
+
+`off` writes into `/run`, a tmpfs, so it cannot outlive a reboot and leave a
+machine that silently never powers off again.
+
+Settings live in `/etc/idle-poweroff.conf`, written once on the first install and
+never overwritten afterwards — the same idea as the `.local` alias file, so
+`boot.sh` re-running the installer can never undo them. Every key is documented
+in there; the ones worth knowing are `IDLE_MINUTES`, `LOCKED_MINUTES` and
+`MAX_LOAD`. To keep one machine on for good, set `ENABLED=false` there, or
+install with `./install.sh --no-idle-poweroff`.
+
+It needs root — it writes a systemd unit and calls `poweroff` — and a machine
+booted with systemd. Without either, `install.sh` says so and installs the rest
+of the shell config as usual.
+
+If you also run the [i3 config](https://github.com/Spuppateddu/configuration-i3),
+its DPMS timer blanks the panel at 50 minutes, ten minutes before this fires — so
+a dark screen is the visible warning that the machine is about to go.
 
 ## 📄 License
 

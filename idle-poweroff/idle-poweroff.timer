@@ -1,0 +1,16 @@
+# Installed by this repo's install.sh — edit the repo copy, not this file.
+[Unit]
+Description=Check once a minute whether the machine has gone idle
+
+[Timer]
+# Late enough that a Wake-on-LAN or post-blackout boot has settled; the headless
+# idle counter starts at this first check.
+OnBootSec=2min
+OnUnitActiveSec=1min
+# Loose, so systemd batches this instead of waking the CPU on its own.
+AccuracySec=15s
+Persistent=false
+Unit=idle-poweroff.service
+
+[Install]
+WantedBy=timers.target

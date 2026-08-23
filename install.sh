@@ -3,26 +3,32 @@
 # shell. Idempotent. No framework, no plugins, nothing cloned — the whole config
 # is the two files next to this script.
 #
-# Usage: ./install.sh [--dry-run] [--no-login-shell]
+# Usage: ./install.sh [--dry-run] [--no-login-shell] [--no-idle-poweroff]
 #   --dry-run          print every step, touch nothing (DRY_RUN env also honoured)
 #   --no-login-shell   wire the config but leave the login shell alone. What
 #                      best-linux-environment passes when you chose zsh: both
 #                      config repos may be on the machine, only one owns `chsh`.
+#   --no-idle-poweroff wire the config but install no idle-poweroff timer, so
+#                      this machine will never turn itself off
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Reject unknown args rather than ignoring them — a typo'd `--dryrun` silently
 # performing a real install is the worst outcome.
 usage() {
-    printf 'Usage: %s [--dry-run] [--no-login-shell]\n' \
+    printf 'Usage: %s [--dry-run] [--no-login-shell] [--no-idle-poweroff]\n' \
         "$(basename "${BASH_SOURCE[0]}")" >&2
     exit 2
 }
 SET_LOGIN_SHELL=true
+# On by default: these machines are woken by Wake-on-LAN and by the BIOS after a
+# power cut, so something has to turn them back off.
+INSTALL_IDLE=true
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --dry-run)        DRY_RUN=true ;;
-        --no-login-shell) SET_LOGIN_SHELL=false ;;
+        --dry-run)          DRY_RUN=true ;;
+        --no-login-shell)   SET_LOGIN_SHELL=false ;;
+        --no-idle-poweroff) INSTALL_IDLE=false ;;
         *) printf 'Unknown argument: %s\n' "$1" >&2; usage ;;
     esac
     shift
@@ -384,6 +390,106 @@ if [[ "$DRY_RUN" != true ]] && ! bash_completion_here; then
     warn "bash-completion is not installed — tab completion for git/apt/docker"
     warn "stays off. Everything else in this config works."
 fi
+
+# ── Idle poweroff ────────────────────────────────────────────────────────────
+# A root systemd timer that powers this machine off once unused. Never fatal.
+
+# install_root_file <mode> <src> <dest> — copies only when the contents differ,
+# so ./boot.sh re-running this at every boot is silent. Sets IDLE_CHANGED.
+IDLE_CHANGED=false
+install_root_file() {
+    local mode="$1" src="$2" dest="$3"
+    if [[ ! -r "$src" ]]; then
+        warn "Missing $src — skipping ${dest}."
+        return 1
+    fi
+    if cmp -s "$src" "$dest"; then
+        skip "$dest already current."
+        return 0
+    fi
+    step "installing $dest"
+    if run $SUDO install -D -m "$mode" -o root -g root "$src" "$dest"; then
+        IDLE_CHANGED=true
+        return 0
+    fi
+    warn "Could not write $dest."
+    return 1
+}
+
+install_idle_poweroff() {
+    local src="$REPO/idle-poweroff"
+    title "Idle poweroff"
+
+    if [[ "$INSTALL_IDLE" != true ]]; then
+        skip "--no-idle-poweroff — leaving the idle timer alone."
+        return 0
+    fi
+    if [[ ! -d "$src" ]]; then
+        skip "No idle-poweroff/ in this repo — nothing to install."
+        return 0
+    fi
+    # The documented "booted with systemd" test; false inside a container even
+    # when the systemctl binary is present.
+    if ! has_cmd systemctl || [[ ! -d /run/systemd/system ]]; then
+        skip "Not booted with systemd — idle poweroff needs its timer, skipping."
+        return 0
+    fi
+    if ! can_sudo; then
+        warn "No root privileges — idle poweroff not installed."
+        warn "It writes a systemd unit and calls poweroff, so it needs root."
+        warn "Re-run ./install.sh from a terminal to install it."
+        return 0
+    fi
+
+    # Without it a desktop falls back to "cannot measure, assume in use" and
+    # never powers off; a headless machine never needs it.
+    pkg_ensure xprintidle
+
+    install_root_file 0755 "$src/idle-poweroff.sh"      /usr/local/sbin/idle-poweroff
+    install_root_file 0644 "$src/idle-poweroff.service" /etc/systemd/system/idle-poweroff.service
+    install_root_file 0644 "$src/idle-poweroff.timer"   /etc/systemd/system/idle-poweroff.timer
+
+    # Machine-local, like bash-alias.local: written once so ./boot.sh can never
+    # undo your settings.
+    if [[ -e /etc/idle-poweroff.conf ]]; then
+        skip "/etc/idle-poweroff.conf exists — your settings kept."
+    else
+        install_root_file 0644 "$src/idle-poweroff.conf" /etc/idle-poweroff.conf
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+        skip "dry run — timer not reloaded or enabled."
+        return 0
+    fi
+
+    if [[ "$IDLE_CHANGED" == true ]]; then
+        $SUDO systemctl daemon-reload || warn "systemctl daemon-reload failed."
+        $SUDO systemctl enable --quiet idle-poweroff.timer 2>/dev/null \
+            || warn "Could not enable idle-poweroff.timer."
+        # restart, not start: a running timer still holds the OLD unit file.
+        if $SUDO systemctl restart idle-poweroff.timer; then
+            ok "idle-poweroff.timer installed and running."
+        else
+            warn "Could not start it — see: systemctl status idle-poweroff.timer"
+            return 0
+        fi
+    elif systemctl is-active --quiet idle-poweroff.timer; then
+        skip "idle-poweroff.timer already running."
+    else
+        $SUDO systemctl enable --now idle-poweroff.timer \
+            && ok "idle-poweroff.timer enabled." \
+            || warn "Could not enable idle-poweroff.timer."
+    fi
+
+    # Said out loud: a machine that powers itself off should never be a surprise.
+    local mins locked
+    mins=$(awk -F= '/^[[:space:]]*IDLE_MINUTES=/   { v = $2 } END { print (v ? v : 60) }' /etc/idle-poweroff.conf 2>/dev/null)
+    locked=$(awk -F= '/^[[:space:]]*LOCKED_MINUTES=/ { v = $2 } END { print (v ? v : 10) }' /etc/idle-poweroff.conf 2>/dev/null)
+    ok "This machine now powers itself off after ${mins:-60} min unused (${locked:-10} min with the screen locked)."
+    ok "Check it with 'b-idle'; pause it with 'b-idle off'; settings in /etc/idle-poweroff.conf."
+}
+
+install_idle_poweroff
 
 # ── Machine-local aliases ────────────────────────────────────────────────────
 # Not created: an empty file would make bashrc's `[ -f ]` test pass and hide the

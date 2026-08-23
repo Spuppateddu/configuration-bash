@@ -1,0 +1,8 @@
+# Installed by this repo's install.sh — edit the repo copy, not this file.
+[Unit]
+Description=Power the machine off when nobody has used it
+ConditionPathIsExecutable=/usr/local/sbin/idle-poweroff
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/idle-poweroff
