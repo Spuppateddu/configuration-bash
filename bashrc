@@ -143,13 +143,19 @@ fi
 # ── prompt ──────────────────────────────────────────────────────────────────
 # Stock bash's `user@host:path$`, only always coloured: stock paints it just for
 # TERM `xterm-color|*-256color`, so tmux had colour and alacritty did not.
+# Colours are gruvbox: bright orange 208 (#fe8019) and bright aqua 108 (#8ec07c).
 if [[ $- == *i* ]]; then
     # \[ \] mark the escapes zero-width, else readline wraps long lines early.
-    if [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
-        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    _colors=$(tput colors 2>/dev/null || echo 0)
+    if [ "$_colors" -ge 256 ]; then
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[1;38;5;208m\]\u@\h\[\033[00m\]:\[\033[1;38;5;108m\]\w\[\033[00m\]\$ '
+    elif [ "$_colors" -ge 8 ]; then
+        # No 256-colour palette here, and no orange in it either: use red/cyan.
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\u@\h\[\033[00m\]:\[\033[01;36m\]\w\[\033[00m\]\$ '
     else
         PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
     fi
+    unset _colors
 
     # Stock also sets the window title; the assignment above dropped it.
     case "$TERM" in

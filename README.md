@@ -9,9 +9,10 @@ one bash ships with, only always coloured.
 ## ✨ What you get
 
 - **Stock prompt, always coloured.** The `user@host:path$` bash ships with — one
-  line, no git branch, no theme — user@host green, path blue. Stock `~/.bashrc`
-  colours it only for `TERM` `xterm-color|*-256color`, which is why tmux had
-  colour and alacritty did not; here the test is `tput colors`.
+  line, no git branch, no theme — user@host gruvbox orange, path gruvbox aqua.
+  Stock `~/.bashrc` colours it only for `TERM` `xterm-color|*-256color`, which is
+  why tmux had colour and alacritty did not; here the test is `tput colors`. On a
+  terminal without 256 colours it falls back to plain red and cyan.
 - **↑/↓ searches history by prefix.** Type the start of a command, then ↑ walks
   only the entries that begin with it (readline's `history-search-backward`).
 - **Tab completion** for git, apt, docker and the rest, via `bash-completion` —
