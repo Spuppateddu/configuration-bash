@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # idle-poweroff — powers the machine off once unused: 10 min with the screen
-# locked, 1 h otherwise (desktop, greeter or headless). Warns first, then acts.
+# locked, 1 h otherwise (desktop, greeter or headless). Never while an ssh
+# client is connected, nor for 10 min after. Warns first, then acts.
 
 # Usage: idle-poweroff.sh [--status|--dry-run]   Settings: /etc/idle-poweroff.conf
 
@@ -18,6 +19,14 @@ LOCKERS="i3lock swaylock xsecurelock slock xtrlock"
 # Keep true on anything reached over the network, or a headless box powers off
 # underneath an ssh session that is merely quiet.
 BLOCK_ON_LOGIN_SESSIONS=true
+# A connected ssh client blocks the poweroff outright, however quiet it is.
+BLOCK_ON_SSH=true
+# And for this long after the last one closed, so `exit` in an ssh shell does
+# not drop the machine two minutes later. 0 turns the grace period off.
+SSH_GRACE_MINUTES=10
+# Ports to look for ssh connections on, used only when the sshd listener itself
+# cannot be read out of `ss` (no process column, or sshd started elsewhere).
+SSH_PORTS=22
 
 CONF=/etc/idle-poweroff.conf
 # shellcheck source=/dev/null
@@ -27,6 +36,7 @@ CONF=/etc/idle-poweroff.conf
 # outlive a reboot. Both are deliberate.
 STATE_DIR=/run/idle-poweroff
 IDLE_SINCE="$STATE_DIR/idle-since"
+SSH_LAST="$STATE_DIR/ssh-last"
 WARNED="$STATE_DIR/warned"
 DISABLED="$STATE_DIR/disabled"
 
@@ -35,12 +45,13 @@ case "${1:-}" in
     "")         ;;
     --status)   MODE=status ;;
     --dry-run)  MODE=dry ;;
-    -h|--help)  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'idle-poweroff: unknown argument: %s\n' "$1" >&2; exit 2 ;;
 esac
 
 IDLE_SECS=$(( IDLE_MINUTES * 60 ))
 LOCKED_SECS=$(( LOCKED_MINUTES * 60 ))
+SSH_GRACE_SECS=$(( SSH_GRACE_MINUTES * 60 ))
 NOW=$(date +%s)
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
@@ -108,6 +119,46 @@ login_idle() {
     printf '%s\n' "$min"
 }
 
+# Someone connected over ssh, whatever they are doing. Unlike login_idle() this
+# never expires: an ssh shell can sit quiet for hours and still be in use, and
+# scp, sftp, port forwards and remote editors never touch a tty for `who` to
+# see — on systems that dropped utmp, `who` prints nothing for ssh at all.
+# Prints a short description of the first connection it finds.
+ssh_connected() {
+    [ "$BLOCK_ON_SSH" = true ] || return 1
+    local sid user host ports port peer
+
+    # logind knows every session sshd opened through PAM, tty or not.
+    if has_cmd loginctl; then
+        while read -r sid _; do
+            [ -n "$sid" ] || continue
+            [ "$(loginctl show-session "$sid" -p Remote --value 2>/dev/null)" = yes ] \
+                || continue
+            user=$(loginctl show-session "$sid" -p Name --value 2>/dev/null)
+            host=$(loginctl show-session "$sid" -p RemoteHost --value 2>/dev/null)
+            printf '%s@%s, session %s\n' "${user:-?}" "${host:-remote}" "$sid"
+            return 0
+        done < <(loginctl list-sessions --no-legend 2>/dev/null)
+    fi
+
+    # And the sockets themselves, for connections that open no session at all:
+    # `ssh -N` port forwards, and sshd built without PAM.
+    has_cmd ss || return 1
+    # As root the process column names the listener, so a non-standard port is
+    # found without being configured. `sport` is the LOCAL port, so this matches
+    # clients coming in, never an ssh we opened to somewhere else.
+    ports=$(ss -H -tlnp 2>/dev/null | awk '/sshd/ { n = split($4, a, ":"); print a[n] }' | sort -u)
+    [ -n "$ports" ] || ports=$SSH_PORTS
+    for port in $ports; do
+        peer=$(ss -H -tn state established "sport = :$port" 2>/dev/null | awk 'NR == 1 { print $4 }')
+        if [ -n "$peer" ]; then
+            printf 'from %s on port %s\n' "$peer" "$port"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # `pgrep -o` takes the OLDEST match, so a respawned child still reports when the
 # screen actually went dark.
 lock_idle() {
@@ -158,6 +209,12 @@ elif load_high; then
     BLOCKED="load average $(cut -d' ' -f1 /proc/loadavg) is above $MAX_LOAD"
 elif shutdown_inhibited; then
     BLOCKED="a systemd block inhibitor is holding shutdown"
+elif ssh_peer=$(ssh_connected); then
+    BLOCKED="an ssh client is connected ($ssh_peer)"
+    # Stamped on every tick that sees ssh, so the grace period below is counted
+    # from the last moment somebody was really connected.
+    mkdir -p "$STATE_DIR" 2>/dev/null
+    printf '%s\n' "$NOW" > "$SSH_LAST" 2>/dev/null
 fi
 
 if [ -z "$BLOCKED" ]; then
@@ -198,6 +255,15 @@ fi
 
 if [ -z "$BLOCKED" ] && lidle=$(login_idle); then
     add_check "$lidle" "$IDLE_SECS" "tty/ssh login last active"
+fi
+
+# Nothing is connected now, but something was: hold on for SSH_GRACE_MINUTES.
+# A desktop or greeter counts its idle time in X, which an ssh logout does not
+# touch, so without this the machine powers off minutes after you type `exit`.
+if [ -z "$BLOCKED" ] && [ -f "$SSH_LAST" ]; then
+    ssh_last=$(cat "$SSH_LAST" 2>/dev/null)
+    case "$ssh_last" in ''|*[!0-9]*) ssh_last=$NOW ;; esac
+    add_check "$(( NOW - ssh_last ))" "$SSH_GRACE_SECS" "last ssh connection closed"
 fi
 
 # ── Decide ───────────────────────────────────────────────────────────────────

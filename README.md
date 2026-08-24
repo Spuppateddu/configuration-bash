@@ -28,8 +28,10 @@ one bash ships with, only always coloured.
 - **Private aliases stay private.** `bash-alias.local` is gitignored and sourced
   automatically, so machine-specific hosts and IPs never get committed.
 - **The machine turns itself off when nobody is using it** — an hour idle, ten
-  minutes with the screen locked. The counterpart to Wake-on-LAN and
-  "power on after power loss". See [Idle poweroff](#-idle-poweroff).
+  minutes with the screen locked, never while someone is connected over ssh and
+  not for ten minutes after they leave.
+  The counterpart to Wake-on-LAN and "power on after power loss".
+  See [Idle poweroff](#-idle-poweroff).
 
 ## 🚀 Install
 
@@ -202,6 +204,7 @@ machine back off once it is demonstrably unused.
 | Unlocked desktop | **1 h** with no key or mouse event (`xprintidle`) |
 | Sitting at the LightDM login window | **1 h** — the blackout case |
 | Headless, or no X at all | **1 h**, counted from the first check after boot |
+| Someone was on ssh | never while connected, then **10 min** after the last one left |
 
 It never powers off silently. At the limit it sends a desktop notification and a
 `wall`, waits two minutes, and only then pulls the plug — any activity in that
@@ -210,7 +213,20 @@ window cancels it.
 And it will not power off **at all** while:
 
 - the 1-minute load average is above `0.5` — a build, a render, a backup;
-- a tty or ssh login has written to its terminal within the last hour;
+- **anyone is connected over ssh** — an open shell, an `scp`, an `sftp`, a
+  `ssh -N` port forward, a remote editor. This one never expires: an ssh session
+  that has been quiet for hours still counts as in use, so a box you left a
+  build running on cannot power off underneath you. Connections are found
+  through logind, and the ssh sockets themselves for the ones that open no
+  session — so a non-standard ssh port needs no configuration. Set
+  `BLOCK_ON_SSH=false` on a machine something keeps a permanent ssh link to;
+- **for 10 minutes after the last ssh connection closed** (`SSH_GRACE_MINUTES`).
+  A desktop or a login screen counts its idle time in X, and logging out of ssh
+  does not touch that counter, so without this grace the machine would power off
+  two or three minutes after you type `exit`. Reconnect inside those 10 minutes
+  and the clock starts again from the new disconnection;
+- a tty or ssh login has written to its terminal within the last hour, on
+  systems that still keep `utmp`;
 - a systemd `block` inhibitor is holding shutdown, which is the clean way to
   protect a long job: `systemd-inhibit --what=shutdown --why='ripping a disc' -- make -j16`;
 - `b-idle off` is in force, or `ENABLED=false` is set in the config.
