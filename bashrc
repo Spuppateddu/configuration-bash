@@ -2,7 +2,8 @@
 # Sourced from ~/.bashrc by install.sh, at the very end of it — so the options
 # below win over whatever Ubuntu's stock ~/.bashrc set earlier.
 #
-# This file does NOT touch PS1: the prompt stays whatever stock bash set.
+# The only thing it changes about the prompt is its colour: stock bash's
+# `user@host:path$`, with user@host green and the path blue, in every terminal.
 
 # Directory this file lives in, so the repo works from any clone location. $0 is
 # the *shell* when a file is sourced in bash, never the file — ${BASH_SOURCE[0]}
@@ -140,7 +141,20 @@ if ! shopt -oq posix; then
 fi
 
 # ── prompt ──────────────────────────────────────────────────────────────────
-# On purpose: nothing here. PS1 is left exactly as Ubuntu's stock ~/.bashrc set
-# it (`user@host:path$`, one line, no git branch). If you ever want a custom
-# prompt, set PS1 in ~/.bashrc *after* the line that sources this file — bash-
-# alias runs further up, so it is too early to win.
+# Stock bash's `user@host:path$`, only always coloured: stock paints it just for
+# TERM `xterm-color|*-256color`, so tmux had colour and alacritty did not.
+if [[ $- == *i* ]]; then
+    # \[ \] mark the escapes zero-width, else readline wraps long lines early.
+    if [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    else
+        PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    fi
+
+    # Stock also sets the window title; the assignment above dropped it.
+    case "$TERM" in
+        xterm*|rxvt*|alacritty*|tmux*|screen*)
+            PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
+            ;;
+    esac
+fi

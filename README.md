@@ -1,15 +1,17 @@
 # .bash
 
 My personal **Bash** configuration: two files and the `bash-completion` package.
-No framework, nothing third-party sourced into your shell. The prompt is left
-alone on purpose — it stays the plain one bash ships with.
+No framework, nothing third-party sourced into your shell. The prompt stays the
+one bash ships with, only always coloured.
 
 ![The stock bash prompt running fastfetch in alacritty](./pictures/bash_setup.png)
 
 ## ✨ What you get
 
-- **No prompt of its own.** `PS1` is never touched, so you keep stock bash's
-  `user@host:path$` — one line, no git branch, no theme.
+- **Stock prompt, always coloured.** The `user@host:path$` bash ships with — one
+  line, no git branch, no theme — user@host green, path blue. Stock `~/.bashrc`
+  colours it only for `TERM` `xterm-color|*-256color`, which is why tmux had
+  colour and alacritty did not; here the test is `tput colors`.
 - **↑/↓ searches history by prefix.** Type the start of a command, then ↑ walks
   only the entries that begin with it (readline's `history-search-backward`).
 - **Tab completion** for git, apt, docker and the rest, via `bash-completion` —
@@ -123,7 +125,7 @@ It is idempotent, so re-run it any time to update.
 Appending at the end is the whole trick. Ubuntu's stock `~/.bashrc` sets its own
 history options and aliases; going last is what makes this config win over them
 instead of being overwritten by them. Nothing in the stock file is deleted, and
-its `PS1` block still does its job — this config sets no prompt.
+its `PS1` block still runs — this config just repaints the prompt after it.
 
 Run it as yourself, **not** with `sudo`: it configures `$HOME`, and under `sudo`
 that is root's. It escalates on its own for the package installs, and refuses to

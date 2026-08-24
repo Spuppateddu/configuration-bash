@@ -192,8 +192,9 @@ already_sources() {
 # ensure_source_line <path-to-source> <rc-file> — always appends, and appends at
 # the very END of the file. That position is the point: Ubuntu's stock ~/.bashrc
 # sets its own history options and a handful of aliases, and going last is what
-# makes this config win over them instead of being overwritten by them. Its PS1
-# is left alone — this config sets no prompt. The original is backed up first.
+# makes this config win over them instead of being overwritten by them — the
+# coloured prompt included, which is set from bashrc. The original is backed up
+# first.
 ensure_source_line() {
     local target="$1" file="$2"
     # Quoted, so a repo cloned to a path with spaces still sources.
