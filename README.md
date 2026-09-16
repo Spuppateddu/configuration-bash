@@ -21,7 +21,7 @@ one bash ships with, only always coloured.
   and skips any command you type with a leading space.
 - **Recursive globs and a forgiving `cd`.** `shopt -s globstar`, plus `cdspell`
   and `dirspell` to fix small typos in a directory name.
-- **Short aliases** for git, tmux, yazi, lazygit, lazydocker and Qalculate — see
+- **Short aliases** for tmux, yazi, lazygit, lazydocker and Qalculate — see
   [Usage](#-usage).
 - **`nvm` loaded on first use**, not at every shell start. Sourcing `nvm.sh`
   costs 100–400 ms and most shells never run node.
@@ -96,7 +96,6 @@ only for wiring things up by hand.
 
 | Alias | Does |
 | --- | --- |
-| `gs` / `gp` | `git status` / `git pull` |
 | `lz` / `ld` | Open `lazygit` / `lazydocker` |
 | `v` | `vim .` |
 | `r` | Open `yazi`, and `cd` to wherever you left it |

@@ -71,10 +71,6 @@ b-reload() {
 alias lz="lazygit"
 alias ld="lazydocker"
 
-# Git
-alias gs="git status"
-alias gp="git pull"
-
 # Idle poweroff — the root timer install.sh sets up; powers this machine off
 # after an hour unused, ten minutes locked. Settings: /etc/idle-poweroff.conf
 
