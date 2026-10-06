@@ -75,6 +75,26 @@ alias ld="lazydocker"
 alias gs="git status"
 alias gp="git pull"
 
+# Idle poweroff — the root timer install.sh sets up; powers this machine off
+# after an hour unused, ten minutes locked. Settings: /etc/idle-poweroff.conf
+
+# b-idle [status|off|on|log] — `off` holds it until reboot only, it lives in /run.
+b-idle() {
+    local bin=/usr/local/sbin/idle-poweroff flag=/run/idle-poweroff/disabled
+    if [ ! -x "$bin" ]; then
+        printf 'b-idle: idle-poweroff is not installed on this machine.\n' >&2
+        return 1
+    fi
+    case "${1:-status}" in
+        status) sudo "$bin" --status ;;
+        off)    sudo mkdir -p /run/idle-poweroff && sudo touch "$flag" &&
+                printf 'idle-poweroff: held off until the next reboot.\n' ;;
+        on)     sudo rm -f "$flag" && printf 'idle-poweroff: active again.\n' ;;
+        log)    journalctl -t idle-poweroff -n 30 --no-pager ;;
+        *)      printf 'usage: b-idle [status|off|on|log]\n' >&2; return 2 ;;
+    esac
+}
+
 # Machine-local, untracked aliases (SSH hosts, secrets, machine-specific paths)
 BASH_ALIAS_LOCAL="$BASH_CONFIG_DIR/bash-alias.local"
 [ -f "$BASH_ALIAS_LOCAL" ] && . "$BASH_ALIAS_LOCAL"
