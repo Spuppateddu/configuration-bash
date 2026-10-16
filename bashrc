@@ -11,6 +11,13 @@
 # has no readlink -f.
 BASH_CONFIG_DIR="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+# Over ssh, land in tmux's 'default' session (~/.tmuxrc/scripts/default_session.sh).
+# Leaving tmux ends the login too; if tmux can't start, this shell carries on.
+if [[ $- == *i* ]] && shopt -q login_shell && [ -n "${SSH_TTY:-}" ] &&
+    [ -x "$HOME/.tmuxrc/scripts/default_session.sh" ]; then
+    "$HOME/.tmuxrc/scripts/default_session.sh" --ssh && exit
+fi
+
 # Default only — never override a locale the system already set.
 export LANG="${LANG:-en_US.UTF-8}"
 
