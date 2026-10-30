@@ -21,12 +21,13 @@ one bash ships with, only always coloured.
   and skips any command you type with a leading space.
 - **Recursive globs and a forgiving `cd`.** `shopt -s globstar`, plus `cdspell`
   and `dirspell` to fix small typos in a directory name.
-- **Short aliases** for tmux, yazi, lazygit, lazydocker and Qalculate — see
-  [Usage](#-usage).
+- **No aliases of its own.** The short ones (`lz`, `ta`, `r`, `calc`, …) live in
+  [best-linux-environment](https://github.com/Spuppateddu/best-linux-environment)'s
+  `aliases` file, shared by bash and zsh: add a new alias there, not here.
 - **`nvm` loaded on first use**, not at every shell start. Sourcing `nvm.sh`
   costs 100–400 ms and most shells never run node.
-- **Private aliases stay private.** `bash-alias.local` is gitignored and sourced
-  automatically, so machine-specific hosts and IPs never get committed.
+- **Private lines stay private.** `bash-alias.local` is gitignored and sourced
+  automatically. Machine-local aliases go in best-linux-environment's `aliases.local`.
 - **The machine turns itself off when nobody is using it** — but that is not
   part of this repo. It is a systemd timer, not a shell setting, so it lives in
   [best-linux-environment](https://github.com/Spuppateddu/best-linux-environment)
@@ -51,16 +52,8 @@ and the login shell — so nothing outside this repo is needed.
 `~/.bashrc` to wherever you cloned it, and `bashrc` finds its own directory at
 runtime from `${BASH_SOURCE[0]}`.
 
-Then, optionally, add your machine-local aliases — SSH hosts, secrets, anything
-you don't want on GitHub:
-
-```sh
-cat > ~/.bash/bash-alias.local <<'EOF'
-# Machine-local aliases — not tracked by git
-alias myserver="ssh user@host-or-ip"
-alias prod="ssh ubuntu@your.prod.ip"
-EOF
-```
+Aliases are not in this repo: best-linux-environment's `aliases` (every machine)
+and `aliases.local` (this machine, gitignored) hold them all.
 
 ### As part of best-linux-environment
 
@@ -77,7 +70,7 @@ back.
 ## 📦 Requirements
 
 Only bash is required. Everything else is optional — you lose the matching alias
-and nothing else.
+(from best-linux-environment's `aliases`) and nothing else.
 
 | Tool | Needed for |
 | --- | --- |
@@ -104,7 +97,7 @@ only for wiring things up by hand.
 | `calc ['43 + 5 * 20']` | Qalculate, interactive or one-shot |
 | `b-reload` | Re-apply every config repo via best-linux-environment's `boot.sh`, then `exec bash` |
 
-Full source in [`bash-alias`](./bash-alias). Installer flags:
+They come from best-linux-environment's `aliases` file. Installer flags:
 
 | Flag | Does |
 | --- | --- |
