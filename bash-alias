@@ -4,6 +4,9 @@ BASH_CONFIG_DIR="${BASH_CONFIG_DIR:-$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}"
 # Calculator (Qalculate): interactive, or one-shot `calc '43 + 5 * 20'`.
 alias calc=qalc
 
+# Go to this user's home — $HOME, so it works on every PC, not a fixed path.
+alias home='cd "$HOME"'
+
 # Aliases Vim
 alias v="vim ."
 

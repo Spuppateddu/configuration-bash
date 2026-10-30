@@ -96,6 +96,7 @@ only for wiring things up by hand.
 | Alias | Does |
 | --- | --- |
 | `lz` / `ld` | Open `lazygit` / `lazydocker` |
+| `home` | `cd` to your home folder (`$HOME`, so the same on every PC) |
 | `v` | `vim .` |
 | `r` | Open `yazi`, and `cd` to wherever you left it |
 | `ta` | `tmux attach` |
